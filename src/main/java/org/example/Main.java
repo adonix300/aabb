@@ -1,13 +1,11 @@
 package org.example;
 
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 public class Main {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
         String[] texts = new String[25];
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
@@ -15,10 +13,11 @@ public class Main {
 
         long startTs = System.currentTimeMillis(); // start time
 
-        List<Thread> threads = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        List<Future<Integer>> futures = new ArrayList<>();
 
         for (String text : texts) {
-            Thread thread = new Thread(() -> {
+            Callable<Integer> task = () -> {
                 int maxSize = 0;
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
@@ -37,18 +36,29 @@ public class Main {
                         }
                     }
                 }
-                System.out.println(text.substring(0, 100) + " -> " + maxSize);
-            });
-            thread.start();
-            threads.add(thread);
+                return maxSize;
+            };
+            Future<Integer> future = executor.submit(task);
+            futures.add(future);
         }
 
-        for (Thread thread : threads) {
-            thread.join();
+        int maxInterval = 0;
+
+        for (Future<Integer> future : futures) {
+            int maxSize = future.get();
+            if (maxSize > maxInterval) {
+                maxInterval = maxSize;
+            }
+        }
+
+        executor.shutdown();
+
+        while (!executor.isTerminated()){
+
         }
 
         long endTs = System.currentTimeMillis(); // end time
-
+        System.out.println(maxInterval);
         System.out.println("Time: " + (endTs - startTs) + "ms");
     }
 
